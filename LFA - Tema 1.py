@@ -1,4 +1,5 @@
 from graphviz import Digraph
+
 # Se vor citi datele de intrate din fisier, fiecare pe cate o linie, in ordinea urmatoare:
     # alfabetul
     # starile
@@ -39,11 +40,13 @@ class Automat:
     def verificare(self):
         ok = 1
         alfabet_valid = 1
+
         for litera in self.cuvant:
             if litera not in self.stari:
                 print("Cuvantul contine o litera care nu face parte din alfabet.")
                 alfabet_valid = 0
                 break
+
         if alfabet_valid:
             if self.cuvant == 'lambda' or self.cuvant == '':
                 print("λ apartine automatului.")
@@ -56,34 +59,39 @@ class Automat:
                     else:
                         self.stare_actuala = posibil[0][2]
                         self.solutie.append(*posibil)
+
                 if self.stare_actuala in self.stari_finale and ok == 1:
                     print("%s apartine automatului." % self.cuvant)
                 else:
-                    print("%s nu apartine automatului, deoarece nu ne aflam intr-o stare finala.." % self.cuvant)
+                    print("%s nu apartine automatului, deoarece nu ne aflam intr-o stare finala." % self.cuvant)
                     self.solutie = []
 
     def deseneaza(self, culoare_graf, culoare_sol):
         g = Digraph('G', filename = 'Automat', format = 'png')
-        g.attr('node', shape = 'circle')
         g.attr('node', shape = 'doublecircle')
+
         for nod in self.stari_finale:
             g.node('%s' % nod)
+
         g.attr('node', shape = 'circle')
         g.node('%s' % self.stare_initiala)
+
         g.attr('node', shape = 'none')
         g.edge('', '%s' % self.stare_initiala, label = 'Start')
+
         g.attr('node', shape = 'circle')
+
         for elem in self.automat:
             if elem in self.solutie:
                 g.attr('edge', color = culoare_sol)
                 g.edge('%s' % elem[0], '%s' % elem[2], label = '%s' % elem[1])
                 g.attr('edge', color = culoare_graf)
             else:
-                g.edge('%s' % elem[0], '%s' % elem[2], label='%s' % elem[1])
+                g.edge('%s' % elem[0], '%s' % elem[2], label = '%s' % elem[1])
         g.view()
 
 
-
-a = Automat('data.in')
-a.verificare()
-a.deseneaza('black', 'red')
+if __name__ == "__main__":
+    a = Automat('data.in')
+    a.verificare()
+    a.deseneaza('red', 'blue')
