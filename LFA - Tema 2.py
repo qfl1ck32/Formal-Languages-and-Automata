@@ -1,0 +1,341 @@
+from graphviz import Digraph
+import os
+
+os.environ['SDL_VIDEO_CENTERED'] = '1'
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = 'hide'
+
+import pygame
+
+class Expression:
+
+    __graph = [] # The links in the final solution (e.g. [('a', 'b', 'c'), ('d', 'e', 'f'), ...])
+    __node = __initialNode = 0 # The number assigned to the first node.
+    __drawing = Digraph('Regular Expression to NFA', filename = 'Regular Expression to NFA', format = 'png')
+    __drawing.attr(rankdir = 'LR')
+    __drawingIsEmpty = 1
+
+
+    def __init__(self, filename): # We initialise our expression with the filename for the input
+
+        f = open('%s' % filename, 'r')
+        self.__expression = f.readline()
+        f.close()
+
+
+    def check(self): # We check if either the paranthesis are not valid, there are unknown symbols or there are two '|' or '*' next to each-other:
+
+        paranthesis = []
+        repetitions = ['*', '|']
+        unknownSymbols = list(''' !@#$%^&-_=+[{\]}'";:/?.>,<''')
+
+        if self.__expression == '':
+            print('The expression is empty.')
+            return 0
+
+        for i in range(len(self.__expression)):
+            letter = self.__expression[i]
+
+            if letter in unknownSymbols:
+                print('''There are unknown symbols in the expression, e.g. '%s'.''' % letter)
+                return 0
+
+            if letter == '(':
+                paranthesis.append(letter)
+
+            elif letter == ')':
+                if paranthesis == []:
+                    print('''Either there is a (sub)expression that starts with ')' or there are too many closed paranthesis.''')
+                    return 0
+                else:
+                    del paranthesis[-1]
+
+            if i < len(self.__expression) - 1:
+                if letter == self.__expression[i + 1] and letter in repetitions:
+                    print('''There are at least two consecutive '%s' in the expression.''' % letter)
+                    return 0
+
+        if paranthesis != []:
+            if len(paranthesis) == 1:
+                print('There is a pair of paranthesis that are not closed.')
+            else:
+                print('There are %s pairs of paranthesis that are not closed.' % len(paranthesis))
+            return 0
+        return 1
+
+    def findEndParanthesis(self, expression, left):
+
+        numOfOpenedParanthesis = numOfClosedParanthesis = 0
+
+        while left < len(expression):
+
+            if expression[left] == '(':
+                numOfOpenedParanthesis += 1
+
+            if expression[left] == ')':
+                numOfClosedParanthesis += 1
+
+            if numOfOpenedParanthesis == numOfClosedParanthesis:
+                return left
+
+            left += 1
+
+    def checkKeywords(self, expression):
+
+        keyWords = '()|*'
+
+        for i in range(len(expression)):
+            if expression[i] in keyWords:
+                return 0
+        return 1
+
+    def DEI(self, expression):
+
+        if len(expression) > 0:
+
+            if self.checkKeywords(expression) == 1:  # If the expression has no symbols, return the expression.
+                return expression
+
+            if '|' in expression:  # If there is an 'or' in the expression:
+                bars = [i for i in range(len(expression)) if expression[i] == '|']  # We check if there ois any
+                for bar in bars:
+                    if expression[:bar].count('(') == expression[:bar].count(')'):
+                        leftPart = self.DEI(expression[:bar])
+                        rightPart = self.DEI(expression[bar + 1:])
+                        return ['|', leftPart, rightPart]
+
+            if '*' in expression and '|' not in expression and '(' not in expression and ')' not in expression:  # If there is an expression with just stars:
+                star = expression.index('*')
+
+                # We have four cases:
+
+                # 1. Xi*
+                if star - 1 == 0 and star + 1 == len(expression):
+                    return ['*', expression[star - 1]]
+
+                # 2. ...Xi*
+                if star - 1 != 0 and star + 1 == len(expression):
+                    leftPart = self.DEI(expression[:star - 1])
+                    return ['.', leftPart, ['*', expression[star - 1]]]
+
+                # 3. Xi*...
+                if star - 1 == 0 and star + 1 != len(expression):
+                    rightPart = self.DEI(expression[star + 1:])
+                    return ['.', ['*', expression[star - 1]], rightPart]
+
+                # 4. ...Xi*...
+                if star - 1 != 0 and star + 1 != len(expression):
+                    leftPart = self.DEI(expression[:star - 1])
+                    rightPart = self.DEI(expression[star + 1:])
+                    return ['.', ['.', leftPart, ['*', expression[star - 1]]], rightPart]
+
+
+        if '(' in expression: # If we have paranthesis, we find out what is inside those:
+
+            leftParanthesis = expression.index('(')
+            rightParanthesis = self.findEndParanthesis(expression, leftParanthesis)
+            star = 0
+
+            if rightParanthesis + 1 < len(expression):
+                if expression[rightParanthesis + 1] == '*':
+                    star = 1
+
+            # We have, once again, four cases:
+
+            # 1. (...)
+            if leftParanthesis == 0:
+                if star == 1:
+                    if rightParanthesis + 2 == len(expression):
+                        return ['*', self.DEI(expression[leftParanthesis + 1 : rightParanthesis])]
+                if star == 0:
+                    if rightParanthesis + 1 == len(expression):
+                        return self.DEI(expression[leftParanthesis + 1 : rightParanthesis])
+
+            # 2. ...(...)
+            if leftParanthesis != 0:
+                if star == 1:
+                    if rightParanthesis + 2 == len(expression):
+                        leftPart = self.DEI(expression[:leftParanthesis])
+                        actualPart = self.DEI(expression[leftParanthesis + 1 : rightParanthesis])
+                        return ['.', leftPart, ['*', actualPart]]
+                if star == 0:
+                    if rightParanthesis + 1 == len(expression):
+                        leftPart = self.DEI(expression[:leftParanthesis])
+                        actualPart = self.DEI(expression[leftParanthesis + 1 : rightParanthesis])
+                        return ['.', leftPart, actualPart]
+
+            # 3. (...)...
+            if leftParanthesis == 0:
+                if star == 1:
+                    if rightParanthesis + 2 != len(expression):
+                            if expression[rightParanthesis + 2] == '|':
+                                actualPart = self.DEI(expression[leftParanthesis + 1 : rightParanthesis])
+                                rightPart = self.DEI(expression[rightParanthesis + 3:])
+                                return ['|', ['*', actualPart], rightPart]
+                            else:
+                                actualPart = self.DEI(expression[leftParanthesis + 1 : rightParanthesis])
+                                rightPart = self.DEI(expression[rightParanthesis + 2:])
+                                return ['.', ['*', actualPart], rightPart]
+                if star == 0:
+                    if rightParanthesis + 1 != len(expression):
+                        if expression[rightParanthesis + 1] == '|':
+                            actualpart = self.DEI(expression[leftParanthesis + 1 : rightParanthesis])
+                            rightPart = self.DEI(expression[rightParanthesis + 2:])
+                            return ['|', actualpart, rightPart]
+                        else:
+                            actualpart = self.DEI(expression[leftParanthesis + 1: rightParanthesis])
+                            rightPart = self.DEI(expression[rightParanthesis + 1:])
+                            return ['.', actualpart, rightPart]
+
+            # 4. ...(...)...
+            if leftParanthesis != 0:
+                if star == 1:
+                    if rightParanthesis + 2 != len(expression):
+                        leftPart = self.DEI(expression[:leftParanthesis])
+                        middlePart = self.DEI(expression[leftParanthesis + 1 : rightParanthesis])
+                        rightPart = self.DEI(expression[rightParanthesis + 2:])
+                        return ['.', ['.', leftPart, ['*', middlePart]], rightPart]
+                if star == 0:
+                    if rightParanthesis + 1 != len(expression):
+                        leftPart = self.DEI(expression[:leftParanthesis])
+                        middlePart = self.DEI(expression[leftParanthesis + 1 : rightParanthesis])
+                        rightPart = self.DEI(expression[rightParanthesis + 1:])
+                        return ['.', ['.', leftPart, middlePart], rightPart]
+
+
+    def solveTree(self, tree):
+
+        if isinstance(tree, str):  # If we have no symbols:
+            for character in tree:
+                self.__graph.append((self.__node, character, self.__node + 1))
+                self.__node += 1
+
+        else:  # We have three cases: '.', '|', '*':
+
+            if tree[0] == '.':
+
+                leftChild = tree[1]
+                rightChild = tree[2]
+
+                self.solveTree(leftChild)
+                self.solveTree(rightChild)
+
+
+            if tree[0] == '*':
+
+                child = tree[1]
+
+                self.__graph.append((self.__node, 'λ', self.__node + 1))
+
+                initialNode = self.__node
+                self.__node += 1
+
+                self.solveTree(child)
+
+                self.__graph.append((self.__node, 'λ', self.__node + 1))
+                self.__graph.append((self.__node, 'λ', initialNode))
+                self.__graph.append((initialNode, 'λ', self.__node + 1))
+
+                self.__node += 1
+
+            if tree[0] == '|':
+
+                leftChild = tree[1]
+                rightChild = tree[2]
+                initialNode = self.__node
+
+                self.__graph.append((self.__node, 'λ', self.__node + 1))
+                self.__node += 1
+
+                self.solveTree(leftChild)
+
+                beforeRight = self.__node  # for connecting the self.__nodes from the two childs to the last self.__node with λ
+
+                self.__graph.append((initialNode, 'λ', self.__node + 1))
+                self.__node += 1
+
+                self.solveTree(rightChild)
+
+                self.__graph.append((beforeRight, 'λ', self.__node + 1))
+                self.__graph.append((self.__node, 'λ', self.__node + 1))
+                self.__node += 1
+
+
+    def Draw(self):
+
+        self.__drawing.attr('node', shape='circle')
+
+        self.__drawing.node('%s' % self.__initialNode)
+
+        self.__drawing.attr('node', shape='none')
+        self.__drawing.edge('', '%s' % self.__initialNode, label='Start', fillcolor = 'green')
+
+        self.__drawing.attr('node', shape='doublecircle')
+        self.__drawing.node('%s' % self.__node)
+
+        self.__drawing.attr('node', shape='circle')
+
+        for link in self.__graph:
+
+            if link[2] == self.__node:
+                color = 'green'
+            elif link[1] == 'λ':
+                color = 'blue'
+            else:
+                color = 'red'
+
+            self.__drawing.edge('%s' % link[0], '%s' % link[2], label = '%s' % link[1], fillcolor = color)
+
+        self.__drawing.render()
+
+    def FindSolution(self):
+
+        if self.check():
+            parsing = self.DEI(self.__expression)
+            self.solveTree(parsing)
+            self.Draw()
+            self.__drawingIsEmpty = 0
+
+    def Show(self):
+
+        if self.__drawingIsEmpty == 0:
+
+            pygame.init()
+
+            pygame.display.set_caption('Regular Expression to NFA')
+
+            myGraph = pygame.image.load('Regular Expression to NFA.png')
+
+            myGraphSize = myGraph.get_rect().size
+            xSize = myGraphSize[0] + 100
+            ySize = myGraphSize[1] + 100
+
+            myWindow = pygame.display.set_mode((xSize, ySize + 50))
+
+            while True:
+
+                myWindow.fill((255, 255, 255))
+
+                myMessage = pygame.font.Font(None, 25).render('Expression = %s' % self.__expression, True, (0, 0, 0))
+                myMessageBox = myMessage.get_rect(center = (xSize/2, 50))
+
+                myWindow.blit(myMessage, myMessageBox)
+
+                myWindow.blit(myGraph, (0, 100))
+
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        quit()
+
+
+                    pygame.display.update()
+
+
+
+def main():
+    a = Expression('data2.in')
+    a.FindSolution()
+    a.Show()
+
+if __name__ == "__main__":
+    main()
