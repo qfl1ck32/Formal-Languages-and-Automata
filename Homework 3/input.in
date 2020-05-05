@@ -1,4 +1,7 @@
-N = {S}
-T = {(, ), {, }, [, ], &}
-S -> (S) | {S} | [S] | (SS) | {SS} | [SS] | &
-n = 6
+N = {S, B, C, D}
+T = {a, b, c, d, w, x, z, &}
+S -> aS | & | bB
+B -> c | dD | & | xC
+C -> aS | xC | z
+D -> w
+n = 5

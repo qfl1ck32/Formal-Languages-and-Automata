@@ -257,9 +257,8 @@ public:
 
     void solve() {
         if (n != 0)
-            for (register int i = 0; i < P.size(); ++i)
-                for (register int j = 0; j < P[i].size(); ++j)
-                    reccursion(P[i][j]);
+            for (register int i = 0; i < P[0].size(); ++i)
+                    reccursion(P[0][i]);
     }
 
     void print() {
